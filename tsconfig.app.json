@@ -1,9 +1,12 @@
 {
   "extends": "@vue/tsconfig/tsconfig.dom.json",
-  "include": ["env.d.ts", "src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue", "amplify/**/*"],
-  "exclude": ["src/**/__tests__/*"],
+  "include": ["env.d.ts", "src/**/*.vue", "amplify/**/*"],
+  "exclude": [
+    "src/**/*.js",
+    "src/**/*.vue.js",
+    "src/**/__tests__/*"
+  ],
   "compilerOptions": {
-    "outDir": "./dist",
     "allowJs": false,
     "composite": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
