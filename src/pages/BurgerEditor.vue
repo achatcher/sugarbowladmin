@@ -1,8 +1,5 @@
 <script setup>
 import { reactive, ref, onMounted, computed, watch } from 'vue'
-import { Amplify } from 'aws-amplify'
-import amplifyConfig from '@/amplify-config.js'
-import { generateClient } from 'aws-amplify/api'
 import { uploadData } from 'aws-amplify/storage'
 
 import ThemeToggle from '@/components/ThemeToggle.vue'
@@ -11,8 +8,8 @@ import AdminLayout from '@/layouts/AdminLayout.vue'
 import { getBurgerOfMonth } from '@/graphql/queries'
 import { updateBurgerOfMonth } from '@/graphql/mutations'
 
-Amplify.configure(amplifyConfig)
-const client = generateClient()
+// Import centralized API client from main.js (or create a composable for this)
+import { apiClient as client } from '@/main.js'
 
 const BURGER_ID = 'current'
 const FIXED_IMAGE_KEY = 'burgers/current_newburger.jpg'
@@ -116,15 +113,24 @@ function resetCurrentBurger() {
   Object.assign(currentBurger, blank)
   Object.assign(burger, blank)
   previewUrl.value = CURRENT_BURGER_IMAGE_URL
+  revokeFilePreviewUrl()
 }
 
 function onFileChange(e) {
   const selectedFile = e.target.files[0]
   if (selectedFile) {
     file.value = selectedFile
+    revokeFilePreviewUrl()
     filePreviewUrl.value = URL.createObjectURL(selectedFile)
     isEditing.value = true
     selectedTab.value = 'preview'
+  }
+}
+
+function revokeFilePreviewUrl() {
+  if (filePreviewUrl.value) {
+    URL.revokeObjectURL(filePreviewUrl.value)
+    filePreviewUrl.value = ''
   }
 }
 
@@ -167,7 +173,7 @@ async function saveBurger() {
     await fetchBurger()
 
     file.value = null
-    filePreviewUrl.value = ''
+    revokeFilePreviewUrl()
     isEditing.value = false
     selectedTab.value = 'current'
     showAlert('✅ Burger saved successfully!')
@@ -182,7 +188,7 @@ async function saveBurger() {
 function cancelEdit() {
   Object.assign(burger, currentBurger)
   file.value = null
-  filePreviewUrl.value = ''
+  revokeFilePreviewUrl()
   isEditing.value = false
   selectedTab.value = 'current'
 }
