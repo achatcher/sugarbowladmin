@@ -1,17 +1,23 @@
 <script setup>
 import { reactive, ref, onMounted, computed, watch } from 'vue'
-import { get, post } from '@aws-amplify/api'
-import { uploadData } from '@aws-amplify/storage'
+import { Amplify } from 'aws-amplify'
+import amplifyConfig from '@/amplify-config.js'
+import { generateClient } from 'aws-amplify/api'
+import { uploadData } from 'aws-amplify/storage'
+
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 
-const apiName = 'burgeradminapi'
+import { getBurgerOfMonth } from '@/graphql/queries'
+import { updateBurgerOfMonth } from '@/graphql/mutations'
 
-// Fixed URL for the current burger image
-const CURRENT_BURGER_IMAGE_URL = 'https://burgeroftheweek-app-dev-storageb6735-dev.s3.us-east-2.amazonaws.com/burgers/current_newburger.jpg'
+Amplify.configure(amplifyConfig)
+const client = generateClient()
+
 const BURGER_ID = 'current'
+const FIXED_IMAGE_KEY = 'burgers/current_newburger.jpg'
+const CURRENT_BURGER_IMAGE_URL = `https://burgeroftheweek-app-dev-storageb6735-dev.s3.us-east-2.amazonaws.com/${FIXED_IMAGE_KEY}`
 
-// Form data for editing
 const burger = reactive({
   id: BURGER_ID,
   name: '',
@@ -19,29 +25,19 @@ const burger = reactive({
   price: '',
   startDate: '',
   endDate: '',
-  imageKey: 'burgers/current_newburger.jpg',
+  imageKey: FIXED_IMAGE_KEY,
 })
 
-// Current burger data from server
-const currentBurger = reactive({
-  id: BURGER_ID,
-  name: '',
-  description: '',
-  price: '',
-  startDate: '',
-  endDate: '',
-  imageKey: 'burgers/current_newburger.jpg',
-})
+const currentBurger = reactive({ ...burger })
 
 const previewUrl = ref(CURRENT_BURGER_IMAGE_URL)
 const file = ref(null)
 const isSaving = ref(false)
 const isLoading = ref(true)
 const filePreviewUrl = ref('')
-const isEditing = ref(false)  // Track if user is editing the form
-const selectedTab = ref('current')  // 'current' or 'preview'
+const isEditing = ref(false)
+const selectedTab = ref('current')
 
-// Automatically switch to preview tab when editing starts
 watch(
   [
     () => burger.name,
@@ -49,10 +45,9 @@ watch(
     () => burger.price,
     () => burger.startDate,
     () => burger.endDate,
-    filePreviewUrl
+    filePreviewUrl,
   ],
   () => {
-    // Check if any form field has changed or a file is selected
     if (
       burger.name ||
       burger.description ||
@@ -62,66 +57,46 @@ watch(
       filePreviewUrl.value
     ) {
       isEditing.value = true
-      // Auto-switch to preview tab when editing starts
       selectedTab.value = 'preview'
     }
   }
 )
 
-// Computed property for preview burger - combines form data with current burger
 const previewBurger = computed(() => {
-  // If editing, show form values; otherwise, show current burger
-  if (isEditing.value) {
-    return {
-      id: BURGER_ID,
-      name: burger.name || 'New Burger Name',
-      description: burger.description || 'Add a description for your burger...',
-      price: burger.price || 0.00,
-      startDate: burger.startDate || '',
-      endDate: burger.endDate || '',
-      // Use file preview URL if available, else use current burger image
-      imageUrl: filePreviewUrl.value || previewUrl.value
-    }
-  } else {
-    return {
-      ...currentBurger,
-      imageUrl: previewUrl.value
-    }
-  }
+  return isEditing.value
+    ? {
+        id: BURGER_ID,
+        name: burger.name || 'New Burger Name',
+        description: burger.description || 'Add a description for your burger...',
+        price: burger.price || 0.0,
+        startDate: burger.startDate || '',
+        endDate: burger.endDate || '',
+        imageUrl: filePreviewUrl.value || previewUrl.value,
+      }
+    : {
+        ...currentBurger,
+        imageUrl: previewUrl.value,
+      }
 })
 
 async function fetchBurger() {
   isLoading.value = true
   try {
-    const op = get({
-      apiName,
-      path: '/burger',
-      options: { authMode: 'userPool' }
+    const response = await client.graphql({
+      query: getBurgerOfMonth,
+      variables: { id: BURGER_ID },
     })
-    const response = await op.response
 
-    // Properly handle the ReadableStream
-    if (response.body && typeof response.body.json === 'function') {
-      const jsonData = await response.body.json()
-      console.log("Parsed burger data:", jsonData)
-
-      if (jsonData && jsonData.id) {
-        // Update the current burger data
-        Object.assign(currentBurger, jsonData)
-
-        // Always use the fixed image URL for the current burger
-        previewUrl.value = CURRENT_BURGER_IMAGE_URL
-        console.log("Using fixed burger image URL:", previewUrl.value)
-      } else {
-        console.log("No burger data found or invalid format:", jsonData)
-        resetCurrentBurger()
-      }
+    const data = response.data.getBurgerOfMonth
+    if (data) {
+      Object.assign(currentBurger, data)
+      Object.assign(burger, data)
+      previewUrl.value = CURRENT_BURGER_IMAGE_URL
     } else {
-      console.log("Response body is not a ReadableStream or has no json method")
       resetCurrentBurger()
     }
-  } catch (e) {
-    console.error('fetchBurger error', e)
+  } catch (error) {
+    console.error('fetchBurger error', error)
     resetCurrentBurger()
   } finally {
     isLoading.value = false
@@ -129,22 +104,25 @@ async function fetchBurger() {
 }
 
 function resetCurrentBurger() {
-  Object.assign(currentBurger, {
+  const blank = {
     id: BURGER_ID,
     name: '',
     description: '',
     price: '',
     startDate: '',
     endDate: '',
-    imageKey: 'burgers/current_newburger.jpg',
-  })
+    imageKey: FIXED_IMAGE_KEY,
+  }
+  Object.assign(currentBurger, blank)
+  Object.assign(burger, blank)
   previewUrl.value = CURRENT_BURGER_IMAGE_URL
 }
+
 function onFileChange(e) {
   const selectedFile = e.target.files[0]
   if (selectedFile) {
     file.value = selectedFile
-    filePreviewUrl.value = window.URL.createObjectURL(selectedFile)
+    filePreviewUrl.value = URL.createObjectURL(selectedFile)
     isEditing.value = true
     selectedTab.value = 'preview'
   }
@@ -158,85 +136,57 @@ function formatPrice(price) {
 async function saveBurger() {
   isSaving.value = true
   try {
-    // Prepare the burger data - always use ID 'current'
-    const burgerData = {
-      ...burger,
-      id: BURGER_ID,
-      imageKey: 'burgers/current_newburger.jpg' // Always use this fixed image key
-    }
-
-    // ensure numeric
-    burgerData.price = parseFloat(burgerData.price)
-
-    // upload if new file selected - always upload with the same filename
     if (file.value) {
-      const path = 'burgers/current_newburger.jpg' // Always use this fixed path
-      const task = await uploadData({
-        path,
+      await uploadData({
+        key: FIXED_IMAGE_KEY,
         data: file.value,
-        options: { contentType: file.value.type, accessLevel: 'public' }
-      })
-      const result = await task.result
-      console.log("Uploaded image to fixed path:", path)
+        options: {
+          contentType: file.value.type,
+          accessLevel: 'public',
+        },
+      }).result
+      console.log('Uploaded image to', FIXED_IMAGE_KEY)
     }
 
-    console.log("Saving burger data:", burgerData)
+    const input = {
+      id: BURGER_ID,
+      name: burger.name,
+      description: burger.description,
+      price: parseFloat(burger.price),
+      startDate: burger.startDate,
+      endDate: burger.endDate,
+      imageKey: FIXED_IMAGE_KEY,
+    }
 
-    // send to API
-    const op = post({
-      apiName,
-      path: '/burger',
-      options: {
-        body: burgerData,
-        authMode: 'userPool'
-      }
+    const response = await client.graphql({
+      query: updateBurgerOfMonth,
+      variables: { input },
     })
-    const response = await op.response
-    console.log("Save response:", response)
 
-    // Handle the response stream correctly
-    if (response.body && typeof response.body.json === 'function') {
-      const jsonResponse = await response.body.json()
-      console.log("Save response parsed:", jsonResponse)
-    }
-
-    // reload from backend to get the saved burger
+    console.log('Save response:', response)
     await fetchBurger()
 
-    // clear form inputs
-    burger.name = ''
-    burger.description = ''
-    burger.price = ''
-    burger.startDate = ''
-    burger.endDate = ''
     file.value = null
     filePreviewUrl.value = ''
     isEditing.value = false
     selectedTab.value = 'current'
-
     showAlert('✅ Burger saved successfully!')
-  } catch (e) {
-    console.error('saveBurger error', e)
-    showAlert('❌ Save failed: ' + (e.message || 'Unknown error'), 'error')
+  } catch (error) {
+    console.error('saveBurger error', error)
+    showAlert('❌ Save failed: ' + (error.message || 'Unknown error'), 'error')
   } finally {
     isSaving.value = false
   }
 }
 
-// Reset the form and go back to current view
 function cancelEdit() {
-  burger.name = ''
-  burger.description = ''
-  burger.price = ''
-  burger.startDate = ''
-  burger.endDate = ''
+  Object.assign(burger, currentBurger)
   file.value = null
   filePreviewUrl.value = ''
   isEditing.value = false
   selectedTab.value = 'current'
 }
 
-// simple alert helper
 const alerts = ref([])
 let nextId = 1
 function showAlert(msg, type = 'success') {
@@ -247,7 +197,6 @@ function showAlert(msg, type = 'success') {
   }, 4000)
 }
 
-// Format date for display
 function formatDate(dateString) {
   if (!dateString) return 'Not set'
   try {
@@ -255,9 +204,9 @@ function formatDate(dateString) {
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric'
+      year: 'numeric',
     })
-  } catch (e) {
+  } catch {
     return dateString
   }
 }
