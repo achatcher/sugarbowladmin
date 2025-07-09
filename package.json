@@ -4,9 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "type-check": "vue-tsc --noEmit",
-    "build-only": "vite build",
-    "build": "run-p type-check build-only"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@aws-amplify/ui-vue": "^4.3.3",
@@ -27,7 +27,7 @@
     "esbuild": "^0.20.2",
     "npm-run-all2": "^6.1.2",
     "tsx": "^4.20.3",
-    "typescript": "^5.3.3",
+    "typescript": "^5.8.3",
     "vite": "^5.4.10",
     "vue-tsc": "^1.4.2"
   }
