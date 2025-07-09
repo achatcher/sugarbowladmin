@@ -8,8 +8,6 @@ import Help from '@/pages/Help.vue'
 
 import { fetchAuthSession } from 'aws-amplify/auth'
 import { Amplify } from 'aws-amplify'
-import awsExports from '@/aws-exports'
-Amplify.configure(awsExports)
 
 const routes = [
   { path: '/', name: 'Login', component: Login },

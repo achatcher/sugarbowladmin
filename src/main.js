@@ -1,7 +1,7 @@
+import './amplify-config'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import './style.css'
-import './aws-config'
 
 createApp(App).use(router).mount('#app')
