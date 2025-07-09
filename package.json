@@ -4,11 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "run-p type-check \"build-only {@}\" --",
-    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit",
     "build-only": "vite build",
-    "type-check": "vue-tsc --build --force"
+    "build": "run-p type-check build-only"
   },
   "dependencies": {
     "@aws-amplify/ui-vue": "^4.3.3",
