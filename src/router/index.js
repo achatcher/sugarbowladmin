@@ -7,7 +7,6 @@ import Settings from '@/pages/Settings.vue'
 import Help from '@/pages/Help.vue'
 
 import { fetchAuthSession } from 'aws-amplify/auth'
-import { Amplify } from 'aws-amplify'
 
 const routes = [
   { path: '/', name: 'Login', component: Login },
