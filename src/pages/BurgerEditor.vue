@@ -1,12 +1,10 @@
 <script setup>
 import { reactive, ref, onMounted, computed, watch } from 'vue'
 import { uploadData } from 'aws-amplify/storage'
-
-import ThemeToggle from '@/components/ThemeToggle.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
-
 import { getBurgerOfMonth } from '@/graphql/queries'
 import { updateBurgerOfMonth } from '@/graphql/mutations'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 // Import centralized API client from main.js (or create a composable for this)
 import { apiClient as client } from '@/main.js'

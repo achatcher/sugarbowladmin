@@ -2,11 +2,10 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
+import './style.css'
 import { Amplify } from 'aws-amplify'
-import outputs from './amplify_outputs.json'
+import outputs from '../amplify_outputs.json'
 
-
-import { Amplify } from 'aws-amplify'
 import { generateClient } from 'aws-amplify/api'
 Amplify.configure(outputs)
 
